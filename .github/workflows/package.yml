@@ -30,24 +30,17 @@ jobs:
           )"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Create zip
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          ZIP="SimpleReaderExtension-${VERSION}.zip"
-
-          rm -f "$ZIP"
-          zip -9 -r "$ZIP" \
-            manifest.json \
-            service_worker.js \
-            popup.html popup.js popup.css \
-            options.html options.js options.css
-
-          echo "ZIP_NAME=$ZIP" >> "$GITHUB_ENV"
-
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.ZIP_NAME }}
-          path: ${{ env.ZIP_NAME }}
+          name: SimpleReaderExtension-${{ steps.version.outputs.version }}
+          path: |
+            manifest.json
+            service_worker.js
+            popup.html
+            popup.js
+            popup.css
+            options.html
+            options.js
+            options.css
           if-no-files-found: error
-

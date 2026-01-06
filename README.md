@@ -12,6 +12,8 @@ A minimal Chrome extension that lets you manually save either the current page U
 ## Notes
 
 - "Send rendered HTML" prefers SimpleReader/SimpRead reading-mode content when detected, otherwise falls back to the full page HTML.
+- When SimpleReader/SimpRead reading-mode is detected, MathML equations are converted to LaTeX (best effort) to improve compatibility in Readwise Reader.
+- When SimpleReader/SimpRead reading-mode is detected, inline SVG content that relies on `foreignObject` is converted to plain text (best effort) to avoid broken/black SVG blocks in Readwise Reader.
 - `should_clean_html` is exposed as a toggle and the last choice is remembered.
 
 ## Packaging (GitHub Actions)

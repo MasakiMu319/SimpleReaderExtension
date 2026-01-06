@@ -16,7 +16,7 @@ function storageLocalGet(keys) {
   });
 }
 
-async function saveToReader({ url, html, shouldCleanHtml, title }) {
+async function saveToReader({ url, html, shouldCleanHtml, title, author }) {
   const { [STORAGE_KEYS.accessToken]: token } = await storageLocalGet([
     STORAGE_KEYS.accessToken,
   ]);
@@ -29,8 +29,28 @@ async function saveToReader({ url, html, shouldCleanHtml, title }) {
     payload.html = html;
     payload.should_clean_html = !!shouldCleanHtml;
   }
-  if (title) {
-    payload.title = title;
+
+  const normalizedTitle = typeof title === "string" ? title.trim() : "";
+  const normalizedAuthor = typeof author === "string" ? author.trim() : "";
+
+  if (normalizedTitle) {
+    payload.title = normalizedTitle;
+  }
+  if (normalizedAuthor) {
+    payload.author = normalizedAuthor;
+  }
+
+  if (html && payload.should_clean_html === false) {
+    const urlHostname = (() => {
+      try {
+        return new URL(url).hostname || "";
+      } catch {
+        return "";
+      }
+    })();
+
+    payload.title = payload.title || urlHostname || url;
+    payload.author = payload.author || urlHostname || "Unknown";
   }
 
   const response = await fetch(READWISE_SAVE_ENDPOINT, {
@@ -70,6 +90,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         html: message.html,
         shouldCleanHtml: message.shouldCleanHtml,
         title: message.title,
+        author: message.author,
       });
       sendResponse({ ok: true, data });
     } catch (error) {

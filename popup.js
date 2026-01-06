@@ -129,7 +129,61 @@ async function captureRenderedHtml() {
               return null;
             }
 
+            const contentClone = contentEl.cloneNode(true);
+
+            for (const mathEl of contentClone.querySelectorAll("math")) {
+              const annotationEl = mathEl.querySelector(
+                'annotation[encoding="application/x-tex"]'
+              );
+              const rawLatex =
+                annotationEl?.textContent || mathEl.getAttribute("alttext") || "";
+              const latex = rawLatex.replace(/\s+/g, " ").trim();
+              const isBlock = mathEl.getAttribute("display") === "block";
+              const replacement = document.createElement(isBlock ? "div" : "span");
+              replacement.className = isBlock ? "rw-math-block" : "rw-math-inline";
+
+              if (latex) {
+                replacement.textContent = isBlock ? `\n$$${latex}$$\n` : `$${latex}$`;
+              } else {
+                replacement.textContent = (mathEl.textContent || "").trim();
+              }
+
+              mathEl.replaceWith(replacement);
+            }
+
+            for (const svgEl of contentClone.querySelectorAll("svg")) {
+              const foreignObject = svgEl.querySelector("foreignObject");
+              if (!foreignObject) {
+                continue;
+              }
+
+              const rawText = foreignObject.textContent || "";
+              let text = rawText.replace(/\s+/g, " ").trim();
+              if (!text) {
+                svgEl.remove();
+                continue;
+              }
+
+              text = text.replace(/^Takeaway\s*/i, "Takeaway\n");
+              text = text.replace(/\s*(\(\d+\))\s*/g, "\n$1 ");
+              text = text.replace(/\n{2,}/g, "\n").trim();
+
+              const lines = text
+                .split("\n")
+                .map((line) => line.trim())
+                .filter(Boolean);
+
+              const replacement = document.createElement("span");
+              replacement.className = "rw-svg-foreignobject-text";
+              replacement.innerHTML = lines.map(escapeHtml).join("<br />");
+
+              svgEl.replaceWith(replacement);
+            }
+
             const extractedTitle = titleEl?.textContent?.trim?.() || "";
+            const extractedAuthor = (descEl?.textContent || "")
+              .replace(/\s+/g, " ")
+              .trim();
             const pageTitle = document.title || "";
             const safeTitle = escapeHtml(extractedTitle || pageTitle);
 
@@ -144,12 +198,12 @@ async function captureRenderedHtml() {
     <article>
       ${titleEl ? `<h1>${titleEl.innerHTML}</h1>` : ""}
       ${descEl ? `<section>${descEl.innerHTML}</section>` : ""}
-      <section>${contentEl.innerHTML}</section>
+      <section>${contentClone.innerHTML}</section>
     </article>
   </body>
 </html>`;
 
-            return { title: extractedTitle, html };
+            return { title: extractedTitle, author: extractedAuthor, html };
           }
 
           const simpleReader = extractSimpleReader();
@@ -157,14 +211,40 @@ async function captureRenderedHtml() {
             return {
               url: location.href,
               title: simpleReader.title || document.title || "",
+              author: simpleReader.author || "",
               html: simpleReader.html,
               source: "simplereader",
             };
           }
 
+          function extractAuthorFromMeta() {
+            const citationAuthors = Array.from(
+              document.querySelectorAll('meta[name="citation_author"]')
+            )
+              .map((el) => el.getAttribute("content") || "")
+              .map((text) => text.trim())
+              .filter(Boolean);
+            if (citationAuthors.length > 0) {
+              return citationAuthors.join(", ");
+            }
+
+            const el = document.querySelector(
+              [
+                'meta[name="author"]',
+                'meta[property="article:author"]',
+                'meta[name="dc.creator"]',
+                'meta[name="dc.Creator"]',
+                'meta[name="DC.Creator"]',
+                'meta[name="DC.creator"]',
+              ].join(",")
+            );
+            return (el?.getAttribute("content") || "").trim();
+          }
+
           return {
             url: location.href,
             title: document.title || "",
+            author: extractAuthorFromMeta(),
             html: document.documentElement?.outerHTML || "",
             source: "full",
           };
@@ -255,7 +335,7 @@ async function onClickSendHtml() {
   setButtonsEnabled(false);
 
   try {
-    const { url, title, html, source } = await captureRenderedHtml();
+    const { url, title, author, html, source } = await captureRenderedHtml();
     if (!isHttpUrl(url)) {
       throw new Error("This page is not http/https; Readwise may not be able to save it.");
     }
@@ -263,6 +343,7 @@ async function onClickSendHtml() {
       type: "READWISE_SAVE",
       url,
       title,
+      author,
       html,
       shouldCleanHtml: $("shouldCleanHtml").checked,
     });

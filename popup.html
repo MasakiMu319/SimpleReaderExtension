@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SimpleReaderExtension</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="container">
+      <header class="header">
+        <h1 class="title">Save to Readwise Reader</h1>
+        <button id="openOptions" class="link-button" type="button">Settings</button>
+      </header>
+
+      <section id="tokenWarning" class="warning" hidden>
+        <div class="warning-text">Readwise Access Token is not set.</div>
+        <button id="goSetup" class="button button-secondary" type="button">
+          Open settings
+        </button>
+      </section>
+
+      <section class="actions">
+        <button id="sendUrl" class="button" type="button">Send current URL</button>
+
+        <div class="divider"></div>
+
+        <button id="sendHtml" class="button" type="button">Send rendered HTML</button>
+        <label class="toggle">
+          <input id="shouldCleanHtml" type="checkbox" />
+          <span>Let Readwise clean HTML (should_clean_html)</span>
+        </label>
+      </section>
+
+      <section class="status">
+        <div id="statusText" class="status-text"></div>
+      </section>
+    </main>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

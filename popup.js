@@ -1,0 +1,243 @@
+const STORAGE_KEYS = {
+  accessToken: "readwise_access_token",
+  shouldCleanHtml: "readwise_should_clean_html",
+};
+
+function $(id) {
+  const element = document.getElementById(id);
+  if (!element) {
+    throw new Error(`Missing element: #${id}`);
+  }
+  return element;
+}
+
+function setStatus(text) {
+  $("statusText").textContent = text || "";
+}
+
+function setButtonsEnabled(enabled) {
+  $("sendUrl").disabled = !enabled;
+  $("sendHtml").disabled = !enabled;
+  $("shouldCleanHtml").disabled = !enabled;
+}
+
+function storageLocalGet(keys) {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.get(keys, (items) => {
+      const error = chrome.runtime.lastError;
+      if (error) {
+        reject(new Error(error.message));
+        return;
+      }
+      resolve(items);
+    });
+  });
+}
+
+function storageLocalSet(items) {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.set(items, () => {
+      const error = chrome.runtime.lastError;
+      if (error) {
+        reject(new Error(error.message));
+        return;
+      }
+      resolve();
+    });
+  });
+}
+
+async function getActiveTabId() {
+  const tabs = await new Promise((resolve, reject) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (result) => {
+      const error = chrome.runtime.lastError;
+      if (error) {
+        reject(new Error(error.message));
+        return;
+      }
+      resolve(result);
+    });
+  });
+
+  const tab = tabs?.[0];
+  if (typeof tab?.id !== "number") {
+    throw new Error("Unable to get the active tab.");
+  }
+  return tab.id;
+}
+
+function isHttpUrl(url) {
+  return typeof url === "string" && (url.startsWith("http://") || url.startsWith("https://"));
+}
+
+async function capturePageBasicInfo() {
+  const tabId = await getActiveTabId();
+  const results = await new Promise((resolve, reject) => {
+    chrome.scripting.executeScript(
+      {
+        target: { tabId },
+        func: () => ({
+          url: location.href,
+          title: document.title || "",
+        }),
+      },
+      (result) => {
+        const error = chrome.runtime.lastError;
+        if (error) {
+          reject(new Error(error.message));
+          return;
+        }
+        resolve(result);
+      }
+    );
+  });
+  const value = results?.[0]?.result;
+  if (!value?.url) {
+    throw new Error("Unable to read the page URL.");
+  }
+  return value;
+}
+
+async function captureRenderedHtml() {
+  const tabId = await getActiveTabId();
+  const results = await new Promise((resolve, reject) => {
+    chrome.scripting.executeScript(
+      {
+        target: { tabId },
+        func: () => ({
+          url: location.href,
+          title: document.title || "",
+          html: document.documentElement?.outerHTML || "",
+        }),
+      },
+      (result) => {
+        const error = chrome.runtime.lastError;
+        if (error) {
+          reject(new Error(error.message));
+          return;
+        }
+        resolve(result);
+      }
+    );
+  });
+  const value = results?.[0]?.result;
+  if (!value?.html) {
+    throw new Error("Unable to read the page HTML.");
+  }
+  return value;
+}
+
+async function sendToBackground(payload) {
+  return await new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(payload, (response) => {
+      const error = chrome.runtime.lastError;
+      if (error) {
+        reject(new Error(error.message));
+        return;
+      }
+      resolve(response);
+    });
+  });
+}
+
+async function refreshUiFromStorage({ preserveStatus = false } = {}) {
+  const data = await storageLocalGet([
+    STORAGE_KEYS.accessToken,
+    STORAGE_KEYS.shouldCleanHtml,
+  ]);
+  const hasToken = !!data[STORAGE_KEYS.accessToken];
+  const shouldCleanHtml = !!data[STORAGE_KEYS.shouldCleanHtml];
+
+  $("shouldCleanHtml").checked = shouldCleanHtml;
+
+  $("tokenWarning").hidden = hasToken;
+  setButtonsEnabled(hasToken);
+  if (!preserveStatus) {
+    if (!hasToken) {
+      setStatus("Please configure your Readwise Access Token in Settings.");
+    } else {
+      setStatus("");
+    }
+  }
+}
+
+async function onClickSendUrl() {
+  setStatus("Sending...");
+  setButtonsEnabled(false);
+
+  try {
+    const { url, title } = await capturePageBasicInfo();
+    if (!isHttpUrl(url)) {
+      throw new Error("This page is not http/https; Readwise may not be able to save it.");
+    }
+    const resp = await sendToBackground({
+      type: "READWISE_SAVE",
+      url,
+      title,
+    });
+    if (!resp?.ok) {
+      throw new Error(resp?.error || "Save failed.");
+    }
+    setStatus(`Saved (URL)\n${resp.data?.url || ""}`.trim());
+  } catch (error) {
+    setStatus(
+      `Failed: ${
+        error instanceof Error ? error.message : error ? String(error) : "Unknown error"
+      }`
+    );
+  } finally {
+    await refreshUiFromStorage({ preserveStatus: true });
+  }
+}
+
+async function onClickSendHtml() {
+  setStatus("Sending...");
+  setButtonsEnabled(false);
+
+  try {
+    const { url, title, html } = await captureRenderedHtml();
+    if (!isHttpUrl(url)) {
+      throw new Error("This page is not http/https; Readwise may not be able to save it.");
+    }
+    const resp = await sendToBackground({
+      type: "READWISE_SAVE",
+      url,
+      title,
+      html,
+      shouldCleanHtml: $("shouldCleanHtml").checked,
+    });
+    if (!resp?.ok) {
+      throw new Error(resp?.error || "Save failed.");
+    }
+    setStatus(`Saved (HTML)\n${resp.data?.url || ""}`.trim());
+  } catch (error) {
+    setStatus(
+      `Failed: ${
+        error instanceof Error ? error.message : error ? String(error) : "Unknown error"
+      }`
+    );
+  } finally {
+    await refreshUiFromStorage({ preserveStatus: true });
+  }
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
+  $("openOptions").addEventListener("click", () => {
+    chrome.runtime.openOptionsPage();
+  });
+
+  $("goSetup").addEventListener("click", () => {
+    chrome.runtime.openOptionsPage();
+  });
+
+  $("sendUrl").addEventListener("click", onClickSendUrl);
+  $("sendHtml").addEventListener("click", onClickSendHtml);
+
+  $("shouldCleanHtml").addEventListener("change", async () => {
+    await storageLocalSet({
+      [STORAGE_KEYS.shouldCleanHtml]: $("shouldCleanHtml").checked,
+    });
+  });
+
+  await refreshUiFromStorage();
+});

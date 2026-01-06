@@ -1,0 +1,53 @@
+name: Package extension
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate manifest.json
+        run: python3 -m json.tool manifest.json > /dev/null
+
+      - name: Read version
+        id: version
+        run: |
+          VERSION="$(python3 - <<'PY'
+          import json
+          with open("manifest.json","r",encoding="utf-8") as f:
+              print(json.load(f)["version"])
+          PY
+          )"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Create zip
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          ZIP="SimpleReaderExtension-${VERSION}.zip"
+
+          rm -f "$ZIP"
+          zip -9 -r "$ZIP" \
+            manifest.json \
+            service_worker.js \
+            popup.html popup.js popup.css \
+            options.html options.js options.css
+
+          echo "ZIP_NAME=$ZIP" >> "$GITHUB_ENV"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ZIP_NAME }}
+          path: ${{ env.ZIP_NAME }}
+          if-no-files-found: error
+

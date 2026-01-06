@@ -1,0 +1,119 @@
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff;
+  --fg: #111827;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --card-bg: #ffffff;
+  --button-bg: #111827;
+  --button-fg: #ffffff;
+  --button-bg-hover: #0b1220;
+  --button-secondary-bg: #f3f4f6;
+  --button-secondary-fg: #111827;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b1020;
+    --fg: #e5e7eb;
+    --muted: #9ca3af;
+    --border: rgba(255, 255, 255, 0.12);
+    --card-bg: rgba(255, 255, 255, 0.04);
+    --button-bg: #e5e7eb;
+    --button-fg: #111827;
+    --button-bg-hover: #f3f4f6;
+    --button-secondary-bg: rgba(255, 255, 255, 0.08);
+    --button-secondary-fg: #e5e7eb;
+  }
+}
+
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.container {
+  max-width: 720px;
+  padding: 24px;
+}
+
+.title {
+  font-size: 18px;
+  margin: 0 0 12px;
+  font-weight: 800;
+}
+
+.hint {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.hint a {
+  color: inherit;
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--card-bg);
+  padding: 16px;
+}
+
+.label {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 8px;
+  color: var(--muted);
+}
+
+.row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.input {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 13px;
+  background: transparent;
+  color: var(--fg);
+}
+
+.button {
+  appearance: none;
+  border: none;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  background: var(--button-bg);
+  color: var(--button-fg);
+}
+
+.button:hover {
+  background: var(--button-bg-hover);
+}
+
+.button-secondary {
+  background: var(--button-secondary-bg);
+  color: var(--button-secondary-fg);
+}
+
+.status {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--muted);
+  min-height: 16px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+

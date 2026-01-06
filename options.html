@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SimpleReaderExtension Settings</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1 class="title">Readwise Settings</h1>
+      <p class="hint">
+        You must configure your Readwise Access Token to use this extension. Get it from:
+        <a href="https://readwise.io/access_token" target="_blank" rel="noreferrer">
+          readwise.io/access_token
+        </a>
+      </p>
+
+      <section class="card">
+        <label class="label" for="tokenInput">Access Token</label>
+        <div class="row">
+          <input id="tokenInput" class="input" type="password" autocomplete="off" />
+          <button id="toggleToken" class="button button-secondary" type="button">
+            Show
+          </button>
+        </div>
+
+        <div class="row">
+          <button id="saveToken" class="button" type="button">Save</button>
+          <button id="clearToken" class="button button-secondary" type="button">
+            Clear
+          </button>
+        </div>
+
+        <div id="status" class="status"></div>
+      </section>
+    </main>
+
+    <script src="options.js"></script>
+  </body>
+</html>

@@ -104,11 +104,71 @@ async function captureRenderedHtml() {
     chrome.scripting.executeScript(
       {
         target: { tabId },
-        func: () => ({
-          url: location.href,
-          title: document.title || "",
-          html: document.documentElement?.outerHTML || "",
-        }),
+        func: () => {
+          function escapeHtml(text) {
+            return String(text)
+              .replaceAll("&", "&amp;")
+              .replaceAll("<", "&lt;")
+              .replaceAll(">", "&gt;")
+              .replaceAll('"', "&quot;")
+              .replaceAll("'", "&#39;");
+          }
+
+          function extractSimpleReader() {
+            const root = document.querySelector(
+              ".simpread-read-root.simpread-read-root-show"
+            );
+            if (!root) {
+              return null;
+            }
+
+            const titleEl = root.querySelector("sr-rd-title");
+            const descEl = root.querySelector("sr-rd-desc");
+            const contentEl = root.querySelector("sr-rd-content");
+            if (!contentEl) {
+              return null;
+            }
+
+            const extractedTitle = titleEl?.textContent?.trim?.() || "";
+            const pageTitle = document.title || "";
+            const safeTitle = escapeHtml(extractedTitle || pageTitle);
+
+            const html = `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <base href="${escapeHtml(location.href)}" />
+    <title>${safeTitle}</title>
+  </head>
+  <body>
+    <article>
+      ${titleEl ? `<h1>${titleEl.innerHTML}</h1>` : ""}
+      ${descEl ? `<section>${descEl.innerHTML}</section>` : ""}
+      <section>${contentEl.innerHTML}</section>
+    </article>
+  </body>
+</html>`;
+
+            return { title: extractedTitle, html };
+          }
+
+          const simpleReader = extractSimpleReader();
+          if (simpleReader?.html) {
+            return {
+              url: location.href,
+              title: simpleReader.title || document.title || "",
+              html: simpleReader.html,
+              source: "simplereader",
+            };
+          }
+
+          return {
+            url: location.href,
+            title: document.title || "",
+            html: document.documentElement?.outerHTML || "",
+            source: "full",
+          };
+        },
       },
       (result) => {
         const error = chrome.runtime.lastError;
@@ -195,7 +255,7 @@ async function onClickSendHtml() {
   setButtonsEnabled(false);
 
   try {
-    const { url, title, html } = await captureRenderedHtml();
+    const { url, title, html, source } = await captureRenderedHtml();
     if (!isHttpUrl(url)) {
       throw new Error("This page is not http/https; Readwise may not be able to save it.");
     }
@@ -209,7 +269,8 @@ async function onClickSendHtml() {
     if (!resp?.ok) {
       throw new Error(resp?.error || "Save failed.");
     }
-    setStatus(`Saved (HTML)\n${resp.data?.url || ""}`.trim());
+    const suffix = source === "simplereader" ? " (SimpleReader)" : "";
+    setStatus(`Saved (HTML)${suffix}\n${resp.data?.url || ""}`.trim());
   } catch (error) {
     setStatus(
       `Failed: ${

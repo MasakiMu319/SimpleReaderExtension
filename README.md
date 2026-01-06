@@ -11,7 +11,7 @@ A minimal Chrome extension that lets you manually save either the current page U
 
 ## Notes
 
-- "Send rendered HTML" reads the current DOM as-is (it may already be cleaned by tools like SimpleReader).
+- "Send rendered HTML" prefers SimpleReader/SimpRead reading-mode content when detected, otherwise falls back to the full page HTML.
 - `should_clean_html` is exposed as a toggle and the last choice is remembered.
 
 ## Packaging (GitHub Actions)

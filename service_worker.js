@@ -40,17 +40,25 @@ async function saveToReader({ url, html, shouldCleanHtml, title, author }) {
     payload.author = normalizedAuthor;
   }
 
-  if (html && payload.should_clean_html === false) {
-    const urlHostname = (() => {
-      try {
-        return new URL(url).hostname || "";
-      } catch {
-        return "";
-      }
-    })();
+  const urlHostname = (() => {
+    try {
+      return new URL(url).hostname || "";
+    } catch {
+      return "";
+    }
+  })();
 
-    payload.title = payload.title || urlHostname || url;
-    payload.author = payload.author || urlHostname || "Unknown";
+  // Readwise may require title/author when should_clean_html is not enabled.
+  if (payload.html && payload.should_clean_html !== true) {
+    const hasTitle = typeof payload.title === "string" && payload.title.trim() !== "";
+    const hasAuthor = typeof payload.author === "string" && payload.author.trim() !== "";
+
+    if (!hasTitle) {
+      payload.title = urlHostname || url;
+    }
+    if (!hasAuthor) {
+      payload.author = urlHostname || "Unknown";
+    }
   }
 
   const response = await fetch(READWISE_SAVE_ENDPOINT, {
@@ -63,16 +71,27 @@ async function saveToReader({ url, html, shouldCleanHtml, title, author }) {
   });
 
   if (!response.ok) {
+    const debugInfo = {
+      has_html: !!payload.html,
+      should_clean_html: payload.should_clean_html,
+      html_length: typeof payload.html === "string" ? payload.html.length : 0,
+      title_length: typeof payload.title === "string" ? payload.title.length : 0,
+      author_length: typeof payload.author === "string" ? payload.author.length : 0,
+    };
     const contentType = response.headers.get("content-type") || "";
     if (contentType.includes("application/json")) {
       const errorJson = await response.json();
       throw new Error(
-        `Save failed (HTTP ${response.status}): ${JSON.stringify(errorJson)}`
+        `Save failed (HTTP ${response.status}): ${JSON.stringify(errorJson)}\nDebug: ${JSON.stringify(
+          debugInfo
+        )}`
       );
     }
 
     const errorText = await response.text();
-    throw new Error(`Save failed (HTTP ${response.status}): ${errorText}`);
+    throw new Error(
+      `Save failed (HTTP ${response.status}): ${errorText}\nDebug: ${JSON.stringify(debugInfo)}`
+    );
   }
 
   return await response.json();
